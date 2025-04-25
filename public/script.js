@@ -162,29 +162,32 @@ function animate(currentTime = 0) {
         const effectiveWidth = config.coverSize + config.spacing;
         const effectiveHeight = config.coverSize + config.spacing;
         
+        // Add a small overlap to prevent gaps
+        const overlap = 1; // 1 pixel overlap
+        
         albumCovers.forEach(cover => {
-            // Update position
-            cover.x += config.direction.x * config.scrollSpeed;
-            cover.y += config.direction.y * config.scrollSpeed;
+            // Update position and round to nearest pixel
+            cover.x = Math.round(cover.x + config.direction.x * config.scrollSpeed);
+            cover.y = Math.round(cover.y + config.direction.y * config.scrollSpeed);
 
             // Calculate total grid width and height
             const gridWidth = Math.ceil(canvas.width / effectiveWidth) * effectiveWidth;
             const gridHeight = Math.ceil(canvas.height / effectiveHeight) * effectiveHeight;
 
-            // Wrap with perfect alignment
+            // Wrap with perfect alignment and overlap
             if (config.direction.x !== 0) {
                 if (cover.x >= gridWidth) {
-                    cover.x = -effectiveWidth;
+                    cover.x = -effectiveWidth + overlap;
                 } else if (cover.x < -effectiveWidth) {
-                    cover.x = gridWidth - effectiveWidth;
+                    cover.x = gridWidth - effectiveWidth - overlap;
                 }
             }
 
             if (config.direction.y !== 0) {
                 if (cover.y >= gridHeight) {
-                    cover.y = -effectiveHeight;
+                    cover.y = -effectiveHeight + overlap;
                 } else if (cover.y < -effectiveHeight) {
-                    cover.y = gridHeight - effectiveHeight;
+                    cover.y = gridHeight - effectiveHeight - overlap;
                 }
             }
 
@@ -192,7 +195,14 @@ function animate(currentTime = 0) {
             if (cover.image) {
                 ctx.save();
                 ctx.beginPath();
-                ctx.roundRect(cover.x, cover.y, cover.width, cover.height, config.borderRadius);
+                // Extend the clip area slightly to ensure no gaps
+                ctx.roundRect(
+                    cover.x - overlap/2, 
+                    cover.y - overlap/2, 
+                    cover.width + overlap, 
+                    cover.height + overlap, 
+                    config.borderRadius
+                );
                 ctx.clip();
                 ctx.drawImage(cover.image, cover.x, cover.y, cover.width, cover.height);
                 ctx.restore();
