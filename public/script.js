@@ -12,9 +12,9 @@ const config = {
     scrollSpeed: 2,
     coverSize: 400,
     spacing: 0,
-    borderRadius: 10,
-    direction: { x: 0.9, y: 1 }, // 1 for right, -1 for left, 0 for no movement
-    alternatingColumns: false,
+    borderRadius: 0,
+    direction: { x: 0, y: 1 }, // 1 for right, -1 for left, 0 for no movement
+    alternatingColumns: true,
     shouldShuffle: true
 };
 
@@ -133,12 +133,13 @@ function initializePositions() {
             albumCovers.push({
                 ...albumCovers[sourceIndex],
                 x: 0,
-                y: 0
+                y: 0,
+                direction: { x: 1, y: 1 } // Default direction
             });
         }
     }
 
-    // Position all images in a grid
+    // Position all images in a grid and set alternating directions
     albumCovers.forEach((cover, index) => {
         const col = index % imagesNeededForWidth;
         const row = Math.floor(index / imagesNeededForWidth);
@@ -146,6 +147,28 @@ function initializePositions() {
         // Start the grid slightly off-screen to ensure smooth wrapping
         cover.x = (col - 1) * (config.coverSize + config.spacing);
         cover.y = (row - 1) * (config.coverSize + config.spacing);
+        
+        // Only apply alternating if movement is purely horizontal or vertical
+        const isHorizontal = config.direction.x !== 0 && config.direction.y === 0;
+        const isVertical = config.direction.x === 0 && config.direction.y !== 0;
+        
+        if (config.alternatingColumns && (isHorizontal || isVertical)) {
+            if (isHorizontal) {
+                // Alternate rows when moving horizontally
+                cover.direction = {
+                    x: (row + 1) % 2 === 0 ? config.direction.x : -config.direction.x,
+                    y: 0 // Maintain zero y-direction
+                };
+            } else {
+                // Alternate columns when moving vertically
+                cover.direction = {
+                    x: 0, // Maintain zero x-direction
+                    y: (col + 1) % 2 === 0 ? config.direction.y : -config.direction.y
+                };
+            }
+        } else {
+            cover.direction = config.direction;
+        }
     });
 }
 
@@ -167,15 +190,15 @@ function animate(currentTime = 0) {
         
         albumCovers.forEach(cover => {
             // Update position and round to nearest pixel
-            cover.x = Math.round(cover.x + config.direction.x * config.scrollSpeed);
-            cover.y = Math.round(cover.y + config.direction.y * config.scrollSpeed);
+            cover.x = Math.round(cover.x + cover.direction.x * config.scrollSpeed);
+            cover.y = Math.round(cover.y + cover.direction.y * config.scrollSpeed);
 
             // Calculate total grid width and height
             const gridWidth = Math.ceil(canvas.width / effectiveWidth) * effectiveWidth;
             const gridHeight = Math.ceil(canvas.height / effectiveHeight) * effectiveHeight;
 
             // Wrap with perfect alignment and overlap
-            if (config.direction.x !== 0) {
+            if (cover.direction.x !== 0) {
                 if (cover.x >= gridWidth) {
                     cover.x = -effectiveWidth + overlap;
                 } else if (cover.x < -effectiveWidth) {
@@ -183,7 +206,7 @@ function animate(currentTime = 0) {
                 }
             }
 
-            if (config.direction.y !== 0) {
+            if (cover.direction.y !== 0) {
                 if (cover.y >= gridHeight) {
                     cover.y = -effectiveHeight + overlap;
                 } else if (cover.y < -effectiveHeight) {
