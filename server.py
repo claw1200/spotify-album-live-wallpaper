@@ -1,7 +1,7 @@
 from flask import Flask, send_file, send_from_directory
 import os
 
-# serve the index.html file at port 3000
+
 app = Flask(__name__, static_folder='public')
 
 # Serve the main HTML file
@@ -23,4 +23,4 @@ if __name__ == '__main__':
     # Create public directory if it doesn't exist
     if not os.path.exists('public'):
         os.makedirs('public')
-    app.run(port=3000, debug=True)
+    app.run(port=9001, debug=True)

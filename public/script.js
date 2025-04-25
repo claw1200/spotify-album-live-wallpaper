@@ -1,6 +1,6 @@
 // Spotify API configuration
 const SPOTIFY_CLIENT_ID = '524ea17d26f64c1dbd8ba951ce483297'; // Replace this with your actual Client ID from Spotify Developer Dashboard
-const SPOTIFY_REDIRECT_URI = 'http://localhost:3000/callback';
+const SPOTIFY_REDIRECT_URI = 'https://api.utilitybelt.app/callback';
 const SPOTIFY_SCOPES = 'user-library-read user-library-modify'; // Updated scope for liked songs
 
 // Canvas setup
@@ -118,17 +118,34 @@ function shuffleArray(array) {
 }
 
 function initializePositions() {
-    // Calculate how many images needed to fill screen width plus one extra for smooth wrapping
-    const imagesNeededForWidth = Math.ceil(canvas.width / config.coverSize) + 1;
-    const imagesNeededForHeight = Math.ceil(canvas.height / config.coverSize) + 1;
+    // Calculate how many images needed to fill screen width plus buffer
+    const imagesNeededForWidth = Math.ceil(canvas.width / (config.coverSize + config.spacing)) + 2;
+    const imagesNeededForHeight = Math.ceil(canvas.height / (config.coverSize + config.spacing)) + 2;
     
-    // Create grid of images
+    // Create a grid that extends beyond the visible area
+    const totalImagesNeeded = imagesNeededForWidth * imagesNeededForHeight;
+    
+    // If we don't have enough unique images, we'll need to duplicate some
+    if (albumCovers.length < totalImagesNeeded) {
+        const originalLength = albumCovers.length;
+        for (let i = 0; i < totalImagesNeeded - originalLength; i++) {
+            const sourceIndex = i % originalLength;
+            albumCovers.push({
+                ...albumCovers[sourceIndex],
+                x: 0,
+                y: 0
+            });
+        }
+    }
+
+    // Position all images in a grid
     albumCovers.forEach((cover, index) => {
         const col = index % imagesNeededForWidth;
-        const row = Math.floor(index / imagesNeededForWidth) % imagesNeededForHeight;
+        const row = Math.floor(index / imagesNeededForWidth);
         
-        cover.x = col * (config.coverSize + config.spacing);
-        cover.y = row * (config.coverSize + config.spacing);
+        // Start the grid slightly off-screen to ensure smooth wrapping
+        cover.x = (col - 1) * (config.coverSize + config.spacing);
+        cover.y = (row - 1) * (config.coverSize + config.spacing);
     });
 }
 
@@ -145,71 +162,38 @@ function animate(currentTime = 0) {
         const effectiveWidth = config.coverSize + config.spacing;
         const effectiveHeight = config.coverSize + config.spacing;
         
-        // Calculate diagonal speed for buffer
-        const speed = Math.sqrt(
-            Math.pow(config.direction.x * config.scrollSpeed, 2) + 
-            Math.pow(config.direction.y * config.scrollSpeed, 2)
-        );
-        
-        // Adjust buffer based on movement speed and direction
-        const renderBuffer = Math.max(effectiveWidth, effectiveHeight) + speed * 10;
-
         albumCovers.forEach(cover => {
             // Update position
             cover.x += config.direction.x * config.scrollSpeed;
             cover.y += config.direction.y * config.scrollSpeed;
 
-            // Calculate wrapped positions
-            let wrappedX = cover.x;
-            let wrappedY = cover.y;
+            // Calculate total grid width and height
+            const gridWidth = Math.ceil(canvas.width / effectiveWidth) * effectiveWidth;
+            const gridHeight = Math.ceil(canvas.height / effectiveHeight) * effectiveHeight;
 
-            // Horizontal wrapping
+            // Wrap with perfect alignment
             if (config.direction.x !== 0) {
-                if (wrappedX > canvas.width) {
-                    wrappedX = wrappedX - Math.ceil(wrappedX / effectiveWidth) * effectiveWidth;
-                } else if (wrappedX < -effectiveWidth) {
-                    wrappedX = canvas.width - (Math.abs(wrappedX) % effectiveWidth);
+                if (cover.x >= gridWidth) {
+                    cover.x = -effectiveWidth;
+                } else if (cover.x < -effectiveWidth) {
+                    cover.x = gridWidth - effectiveWidth;
                 }
             }
 
-            // Vertical wrapping
             if (config.direction.y !== 0) {
-                if (wrappedY > canvas.height) {
-                    wrappedY = wrappedY - Math.ceil(wrappedY / effectiveHeight) * effectiveHeight;
-                } else if (wrappedY < -effectiveHeight) {
-                    wrappedY = canvas.height - (Math.abs(wrappedY) % effectiveHeight);
+                if (cover.y >= gridHeight) {
+                    cover.y = -effectiveHeight;
+                } else if (cover.y < -effectiveHeight) {
+                    cover.y = gridHeight - effectiveHeight;
                 }
             }
 
-            // Update positions with wrapped values
-            cover.x = wrappedX;
-            cover.y = wrappedY;
-
-            // Calculate the distance from the edge of the viewport
-            const distanceFromEdge = Math.min(
-                Math.abs(cover.x + effectiveWidth),
-                Math.abs(cover.x - canvas.width),
-                Math.abs(cover.y + effectiveHeight),
-                Math.abs(cover.y - canvas.height)
-            );
-
-            // Extended render area with dynamic buffer
-            if (cover.image && 
-                cover.x + effectiveWidth >= -renderBuffer && 
-                cover.x <= canvas.width + renderBuffer && 
-                cover.y + effectiveHeight >= -renderBuffer && 
-                cover.y <= canvas.height + renderBuffer) {
-                
-                // Draw rounded rectangle
+            // Draw the image
+            if (cover.image) {
                 ctx.save();
                 ctx.beginPath();
                 ctx.roundRect(cover.x, cover.y, cover.width, cover.height, config.borderRadius);
                 ctx.clip();
-
-                // Draw image with fade effect near edges
-                if (distanceFromEdge < renderBuffer) {
-                    ctx.globalAlpha = 1;
-                }
                 ctx.drawImage(cover.image, cover.x, cover.y, cover.width, cover.height);
                 ctx.restore();
             }
